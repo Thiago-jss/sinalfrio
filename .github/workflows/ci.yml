@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verification:
+    name: .NET, Angular and broker recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Run .NET unit tests
+        run: >-
+          docker run --rm --user "$(id -u):$(id -g)"
+          -e DOTNET_CLI_HOME=/tmp -e DOTNET_NOLOGO=1 -e DOTNET_CLI_TELEMETRY_OPTOUT=1
+          -v "$PWD:/source" -w /source mcr.microsoft.com/dotnet/sdk:10.0@sha256:8c6edfb26c85153f236d26efebd9ad349aec403583f343f201ee67838b23658d
+          dotnet test tests/SinalFrio.UnitTests -c Release -p:RestoreLockedMode=true
+      - name: Build and start the isolated environment
+        run: |
+          python3 scripts/bootstrap.py
+          docker compose -p sinalfrio-ci up -d --build --wait --wait-timeout 180
+      - name: Verify API and broker recovery
+        run: python3 scripts/demo.py --project-name sinalfrio-ci --resilience --verify-republication
+      - name: Verify the Angular dashboard against the real stack
+        run: |
+          python3 -m venv /tmp/sinalfrio-browser
+          /tmp/sinalfrio-browser/bin/python -m pip install playwright==1.61.0
+          /tmp/sinalfrio-browser/bin/python -m playwright install --with-deps chromium
+          /tmp/sinalfrio-browser/bin/python tests/e2e/dashboard.py
+      - name: Clean up the isolated environment
+        if: always()
+        run: if test -f .env; then docker compose -p sinalfrio-ci down --volumes; fi
