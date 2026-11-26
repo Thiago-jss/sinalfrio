@@ -52,6 +52,10 @@ def main():
                         shipment_button.click()
                 expect(review_text).to_be_visible(timeout=10_000)
                 expect(page.get_by_text(NOTE, exact=True)).to_be_visible(timeout=10_000)
+                stage = "verify that the production stylesheet applies under the CSP"
+                icon = page.locator(".identity svg").bounding_box()
+                require(icon is not None and 25 <= icon["width"] <= 60,
+                        "The dashboard masthead icon has lost its production styling.")
                 if screenshot := os.environ.get("SINALFRIO_SCREENSHOT"):
                     page.screenshot(path=screenshot, full_page=True, animations="disabled")
             finally:

@@ -72,7 +72,7 @@
               <p>Houve um desvio confirmado nesta remessa. Este histórico é exibido separadamente da avaliação atual.</p>
               <dl class="time-grid">
                 <div><dt>Início observado</dt><dd><time [attr.datetime]="excursion.startedAt">{{ excursion.startedAt | date:'dd/MM/yyyy HH:mm:ss' }}</time></dd></div>
-                <div><dt>Detectado em</dt><dd><time [attr.datetime]="excursion.detectedAt">{{ excursion.detectedAt | date:'dd/MM/yyyy HH:mm:ss' }}</time></dd></div>
+                <div><dt>Leitura que confirmou o desvio</dt><dd><time [attr.datetime]="excursion.detectedAt">{{ excursion.detectedAt | date:'dd/MM/yyyy HH:mm:ss' }}</time></dd></div>
               </dl>
             } @else { <p>Nenhuma excursão confirmada no histórico.</p> }
             <div class="review">
