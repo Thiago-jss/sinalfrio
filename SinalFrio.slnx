@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SinalFrio.Api/SinalFrio.Api.csproj" />
+    <Project Path="src/SinalFrio.Contracts/SinalFrio.Contracts.csproj" />
+    <Project Path="src/SinalFrio.Core/SinalFrio.Core.csproj" />
+    <Project Path="src/SinalFrio.Infrastructure/SinalFrio.Infrastructure.csproj" />
+    <Project Path="src/SinalFrio.Worker/SinalFrio.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SinalFrio.UnitTests/SinalFrio.UnitTests.csproj" />
+  </Folder>
+</Solution>

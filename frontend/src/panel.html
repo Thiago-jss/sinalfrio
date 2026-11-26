@@ -1,0 +1,123 @@
+<a href="#conteudo" class="skip">Ir para o conteúdo</a>
+<header class="masthead">
+  <div class="wrap nav">
+    <div class="identity">
+      <svg aria-hidden="true" viewBox="0 0 32 32" fill="none"><path d="M16 5v22M6.5 10.5l19 11m-19 0 19-11M12 7l4 4 4-4m-8 18 4-4 4 4M7 15l5-1-1-5m14 8-5 1 1 5M7 17l5 1-1 5m14-8-5-1 1-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><strong>SinalFrio</strong><span>OPERAÇÕES LOGÍSTICAS</span></div>
+    </div>
+    <div class="connection">
+      <span class="connection-state" [class.live]="phase() === 'connected'" role="status">{{ phase() === 'connected' ? 'Conectado' : phase() === 'loading' ? 'Conectando' : 'Desconectado' }}</span>
+      @if (active()) { <button class="disconnect" type="button" (click)="stop()">{{ phase() === 'loading' ? 'Cancelar' : 'Desconectar' }}</button> }
+    </div>
+  </div>
+</header>
+<main class="wrap main" id="conteudo" tabindex="-1">
+  <div class="intro">
+    <p class="eyebrow">CADEIA FRIA / CENTRAL DE CONTROLE</p>
+    <h1>Monitoramento de remessas</h1>
+    <p>Acompanhe a temperatura no transporte e revise desvios confirmados.</p>
+  </div>
+  @if (!active()) {
+    <section class="card access" aria-labelledby="access-title">
+      <p class="eyebrow">ACESSO OPERACIONAL</p>
+      <h2 id="access-title">Conecte-se à central</h2>
+      <p>Use a chave do operador para consultar remessas e registrar revisões.</p>
+      @if (phase() === 'unauthorized') { <p class="notice danger" role="alert">Acesso não autorizado. Verifique a chave e tente novamente.</p> }
+      @if (phase() === 'error') { <p class="notice danger" role="alert">Não foi possível conectar à central. Tente novamente.</p> }
+      <form (submit)="$event.preventDefault(); connect(operatorKey)">
+        <label for="operator-key">Chave do operador</label>
+        <div class="access-fields">
+          <input #operatorKey id="operator-key" type="password" autocomplete="off" spellcheck="false" required aria-describedby="key-help">
+          <button class="primary" type="submit">Conectar</button>
+        </div>
+        <small id="key-help">A chave fica apenas na memória até desconectar ou recarregar.</small>
+      </form>
+    </section>
+  } @else if (phase() === 'loading') {
+    <p class="card placeholder" role="status">Carregando remessas…</p>
+  } @else {
+    <div class="workspace">
+      <section class="card queue" aria-labelledby="queue-title">
+        <div class="section-head"><div><p class="eyebrow">ACOMPANHAMENTO</p><h2 id="queue-title">Remessas</h2></div><span class="count" aria-label="Total de remessas">{{ shipments().length }}</span></div>
+        @if (listError()) { <p class="notice danger queue-notice" role="alert">{{ listError() }}</p> }
+        @if (!shipments().length && !listError()) { <p class="queue-notice">Nenhuma remessa disponível.</p> }
+        <ul class="shipments">
+          @for (shipment of shipments(); track shipment.id) {
+            <li><button class="shipment" type="button" [attr.aria-label]="shipment.code" [attr.aria-description]="shipment.route + ' · ' + labels[shipment.assessmentStatus]" [attr.aria-pressed]="selected() === shipment.id" [disabled]="saving()" (click)="select(shipment.id)">
+              <strong>{{ shipment.code }}</strong><span class="route">{{ shipment.route }}</span>
+              <span class="badge" [attr.data-status]="shipment.assessmentStatus">{{ labels[shipment.assessmentStatus] }}</span>
+            </button></li>
+          }
+        </ul>
+        <div class="queue-foot">@if (refreshed(); as at) { Lista atualizada às <time [attr.datetime]="at.toISOString()">{{ at | date:'HH:mm:ss' }}</time> }</div>
+      </section>
+      <div class="inspection">
+        @if (detailError()) { <p class="notice danger" role="status">{{ detailError() }}</p> }
+        @if (detail(); as d) {
+          <article class="card snapshot" aria-labelledby="detail-title">
+            <div class="section-head">
+              <div><p class="eyebrow">INSPEÇÃO DA REMESSA</p><h2 id="detail-title">{{ d.code }}</h2><p class="route">{{ d.route }}</p></div>
+              <span class="badge" [attr.data-status]="d.assessmentStatus">{{ labels[d.assessmentStatus] }}</span>
+            </div>
+            <p class="assessment">{{ help[d.assessmentStatus] }}</p>
+            <dl class="metrics">
+              <div><dt>Faixa prevista</dt><dd>{{ d.temperatureMin | number:'1.0-2' }} a {{ d.temperatureMax | number:'1.0-2' }} °C</dd></div>
+              <div><dt>Versão das leituras</dt><dd>{{ d.readingVersion }}</dd></div>
+              <div><dt>Versão avaliada</dt><dd>{{ d.evaluatedVersion }}</dd></div>
+            </dl>
+          </article>
+          <section class="card history" aria-labelledby="history-title">
+            <p class="eyebrow">RASTREABILIDADE</p><h2 id="history-title">Histórico de excursão</h2>
+            @if (d.excursion; as excursion) {
+              <p>Houve um desvio confirmado nesta remessa. Este histórico é exibido separadamente da avaliação atual.</p>
+              <dl class="time-grid">
+                <div><dt>Início observado</dt><dd><time [attr.datetime]="excursion.startedAt">{{ excursion.startedAt | date:'dd/MM/yyyy HH:mm:ss' }}</time></dd></div>
+                <div><dt>Leitura que confirmou o desvio</dt><dd><time [attr.datetime]="excursion.detectedAt">{{ excursion.detectedAt | date:'dd/MM/yyyy HH:mm:ss' }}</time></dd></div>
+              </dl>
+            } @else { <p>Nenhuma excursão confirmada no histórico.</p> }
+            <div class="review">
+              <h3>Revisão do operador</h3>
+              @if (d.review; as review) {
+                <div class="notice" [class.old]="reviewState(d) === 'stale'">
+                  <strong>{{ reviewState(d) === 'current' ? 'Revisão registrada' : 'Revisão de versão anterior' }}</strong>
+                  <p>{{ review.decision === 'acknowledged' ? 'Ciência registrada' : review.decision }} · versão {{ review.evaluatedVersion }} · <time [attr.datetime]="review.reviewedAt">{{ review.reviewedAt | date:'dd/MM/yyyy HH:mm:ss' }}</time></p>
+                  <p class="review-note">{{ review.note }}</p>
+                </div>
+              } @else if (!canReview(d)) { <p>Nenhuma revisão registrada.</p> }
+              @if (reviewMessage()) { <p class="notice old" role="status">{{ reviewMessage() }}</p> }
+              @if (canReview(d)) {
+                <form (submit)="$event.preventDefault(); submit(d)">
+                  <label for="review-note">Justificativa</label>
+                  <textarea id="review-note" rows="3" required [readOnly]="saving()" [value]="note()" (input)="edit($any($event.target).value)" aria-describedby="review-help"></textarea>
+                  <small id="review-help">O registro confirma ciência da excursão na versão {{ d.evaluatedVersion }}.</small>
+                  <button class="primary" type="submit" [disabled]="saving() || !note().trim() || !!detailError()">{{ saving() ? 'Registrando…' : 'Registrar revisão' }}</button>
+                </form>
+              }
+              <div class="sr-only" role="status">{{ reviewState(d) === 'current' ? 'Revisão atualizada na versão avaliada.' : '' }}</div>
+            </div>
+          </section>
+          <section class="card readings" aria-labelledby="readings-title">
+            <div class="section-head"><div><p class="eyebrow">TELEMETRIA</p><h2 id="readings-title">Leituras de temperatura</h2></div><span class="count" aria-label="Total de leituras">{{ rows().length }}</span></div>
+            <p>Horários no fuso local do navegador. As leituras mais recentes aparecem primeiro.</p>
+            @if (rows().length) {
+              <table>
+                <caption class="sr-only">Leituras de temperatura da remessa {{ d.code }}</caption>
+                <thead><tr><th scope="col">Temperatura</th><th scope="col">Observada em</th><th scope="col">Recebida em</th></tr></thead>
+                <tbody>
+                  @for (row of rows(); track row.id) {
+                    <tr><td>{{ row.celsius | number:'1.1-2' }} °C</td><td><time [attr.datetime]="row.observedAt">{{ row.observedAt | date:'dd/MM/yyyy HH:mm:ss' }}</time></td><td><time [attr.datetime]="row.receivedAt">{{ row.receivedAt | date:'dd/MM/yyyy HH:mm:ss' }}</time></td></tr>
+                  }
+                </tbody>
+              </table>
+            } @else { <p>Nenhuma leitura recebida.</p> }
+          </section>
+        } @else if (selected() && !detailError()) {
+          <p class="card placeholder" role="status">Carregando inspeção da remessa…</p>
+        } @else if (!selected()) {
+          <p class="card placeholder">A inspeção fica disponível quando houver uma remessa na lista.</p>
+        }
+      </div>
+    </div>
+  }
+  <footer><strong>SinalFrio</strong> <span>·</span> Monitoramento da cadeia fria</footer>
+</main>

@@ -1,0 +1,19 @@
+# Local credentials and settings
+.env
+.env.*
+!.env.example
+
+# Builds, IDEs, and evidence
+**/bin/
+**/obj/
+**/.vs/
+**/node_modules/
+**/.angular/
+**/dist/
+**/__pycache__/
+**/test-results/
+**/playwright-report/
+artifacts/
+*.user
+*.log
+.local-build/

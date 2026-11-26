@@ -1,0 +1,93 @@
+name: sinalfrio
+
+services:
+  db:
+    image: postgres:17-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73
+    environment:
+      POSTGRES_DB: sinalfrio
+      POSTGRES_PASSWORD: ${SINALFRIO_DB_ADMIN_PASSWORD:?execute scripts/bootstrap.py}
+      SINALFRIO_DB_MIGRATOR_PASSWORD: ${SINALFRIO_DB_MIGRATOR_PASSWORD:?execute scripts/bootstrap.py}
+      SINALFRIO_DB_RUNTIME_PASSWORD: ${SINALFRIO_DB_RUNTIME_PASSWORD:?execute scripts/bootstrap.py}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./ops/db/010-roles.sh:/docker-entrypoint-initdb.d/010-roles.sh:ro
+    healthcheck:
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, postgres, -d, sinalfrio]
+      interval: 2s
+      timeout: 3s
+      retries: 45
+
+  rabbitmq:
+    image: rabbitmq:4.3-management-alpine@sha256:92d5e539a2f376b0c4ba13d03ec52c1e22a9df1a98be3739ccfb452ac83a4ede
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: sinalfrio
+      RABBITMQ_DEFAULT_PASS: ${SINALFRIO_RABBIT_PASSWORD:?execute scripts/bootstrap.py}
+    volumes:
+      - broker-data:/var/lib/rabbitmq
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, check_port_connectivity]
+      interval: 4s
+      timeout: 7s
+      retries: 30
+
+  migrate:
+    build:
+      context: .
+      dockerfile: ops/dotnet.Dockerfile
+      target: api
+    image: sinalfrio-api:local
+    command: [--migrate]
+    environment:
+      ConnectionStrings__Database: 'Host=db;Database=sinalfrio;Username=sinalfrio_migrator;Password=${SINALFRIO_DB_MIGRATOR_PASSWORD:?execute scripts/bootstrap.py}'
+      Demo__SensorToken: ${SINALFRIO_SENSOR_TOKEN:?execute scripts/bootstrap.py}
+      Demo__OperatorToken: ${SINALFRIO_OPERATOR_TOKEN:?execute scripts/bootstrap.py}
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    image: sinalfrio-api:local
+    pull_policy: never
+    environment:
+      ASPNETCORE_HTTP_PORTS: '8080'
+      ConnectionStrings__Database: 'Host=db;Database=sinalfrio;Username=sinalfrio_runtime;Password=${SINALFRIO_DB_RUNTIME_PASSWORD:?execute scripts/bootstrap.py}'
+      Demo__SensorToken: ${SINALFRIO_SENSOR_TOKEN:?execute scripts/bootstrap.py}
+      Demo__OperatorToken: ${SINALFRIO_OPERATOR_TOKEN:?execute scripts/bootstrap.py}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    build:
+      context: .
+      dockerfile: ops/dotnet.Dockerfile
+      target: worker
+    image: sinalfrio-worker:local
+    environment:
+      ConnectionStrings__Database: 'Host=db;Database=sinalfrio;Username=sinalfrio_runtime;Password=${SINALFRIO_DB_RUNTIME_PASSWORD:?execute scripts/bootstrap.py}'
+      Messaging__Host: rabbitmq
+      Messaging__Port: '5672'
+      Messaging__Username: sinalfrio
+      Messaging__Password: ${SINALFRIO_RABBIT_PASSWORD:?execute scripts/bootstrap.py}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+    restart: on-failure:3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ops/frontend.Dockerfile
+    image: sinalfrio-frontend:local
+    ports:
+      - '127.0.0.1:${SINALFRIO_PORT:-5186}:8080'
+    depends_on:
+      api: { condition: service_started }
+    healthcheck:
+      test: [CMD, wget, --quiet, --output-document=/dev/null, 'http://127.0.0.1:8080/health/ready']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  db-data:
+  broker-data:
