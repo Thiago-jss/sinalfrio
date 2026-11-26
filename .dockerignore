@@ -1,0 +1,13 @@
+**/.env
+**/.env.*
+**/.git
+**/bin
+**/obj
+**/.vs
+**/node_modules
+**/.angular
+**/dist
+**/test-results
+**/playwright-report
+**/__pycache__
+artifacts
