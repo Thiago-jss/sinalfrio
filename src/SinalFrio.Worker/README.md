@@ -1,0 +1,9 @@
+# SinalFrio Worker
+
+The worker is a .NET 10 generic host with no listening port. Configure `ConnectionStrings__Database`, `Messaging__Host`, `Messaging__Username`, `Messaging__Password`, and optionally `Messaging__Port` (5672). The PostgreSQL schema must already exist. The API can accept readings during a broker outage because it only writes the outbox; the worker owns broker connections and reconnects independently for publishing and consuming.
+
+The relay scans unpublished `public.sf_outbox` rows and sends their JSON as persistent messages via the default exchange to `sinalfrio.telemetry.v1`. It marks a row only after the mandatory publish receives a broker confirm. DB locks are not held across the publish. A crash or DB error between confirm and update can duplicate a publish, as can multiple relay instances scanning the same rows. The evaluator must be idempotent; queue order is not an ordering guarantee for evaluation.
+
+The consumer prefetches one message and acknowledges only after the evaluator completes. It makes at most three attempts per delivery for transient PostgreSQL failures and timeouts, each in a new DI scope. Invalid events and terminal evaluator failures are negatively acknowledged without requeue. Lost sessions and host cancellation leave unsettled deliveries to RabbitMQ for redelivery; they do not count as application rejections.
+
+The topology requires RabbitMQ with quorum queues and at-least-once dead-lettering (verified on 4.1). The source queue retains negatively acknowledged messages until the broker confirms delivery to the durable quorum DLQ `sinalfrio.telemetry.dead` via the durable direct exchange `sinalfrio.telemetry.dlx`. There is no automatic DLQ replay; investigate before replaying. The quorum delivery limit is disabled so repeated connection loss or host shutdown does not dead-letter an otherwise healthy message. A single-node broker provides no replication despite using quorum queues.
