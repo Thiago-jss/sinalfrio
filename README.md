@@ -2,6 +2,8 @@
 
 **Operação de transportes refrigerados com leituras atrasadas, alertas e revisão humana.** Um sensor perdeu a conexão; ao voltar, envia uma amostra que muda a avaliação de uma viagem. A temperatura atual pode estar normal e, ainda assim, o histórico exigir revisão.
 
+![Painel de uma remessa fictícia: leitura atual de 7 °C, desvio confirmado no histórico e revisão registrada](docs/imagens/painel.png)
+
 ## Execute localmente
 
 Pré-requisitos: Docker com Compose e Python 3. Os bancos e a fila não são publicados na rede. O único ponto de entrada é `http://127.0.0.1:5186`.
@@ -30,4 +32,4 @@ A avaliação é assíncrona. O painel compara duas versões: a última leitura 
 - **RabbitMQ e Worker Service:** publicam e processam o evento que dispara a avaliação, fora da requisição HTTP.
 - **Angular 22:** painel de operações com leitura atual, horários de medição e recebimento, estado da avaliação e última revisão.
 
-Veja as [decisões de arquitetura](docs/arquitetura.md) e a [operação local](docs/operacao.md). Os dados, os limites de temperatura e os critérios da demo são fictícios. O sistema sinaliza condições para revisão: não homologa sensores, não certifica a qualidade da carga e não decide descarte ou liberação.
+Veja as [decisões de arquitetura](docs/arquitetura.md), o [contrato da API](docs/api.md) e a [operação local](docs/operacao.md). Os dados, os limites de temperatura e os critérios da demo são fictícios. O sistema sinaliza condições para revisão: não homologa sensores, não certifica a qualidade da carga e não decide descarte ou liberação.
