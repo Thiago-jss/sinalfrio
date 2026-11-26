@@ -157,7 +157,8 @@ namespace SinalFrio.Infrastructure.Migrations
 
             migrationBuilder.Sql("""
                 GRANT SELECT ON public.sf_shipments, public.sf_readings,
-                    public.sf_reviews, public.sf_outbox, public.sf_inbox TO sinalfrio_runtime;
+                    public.sf_reviews, public.sf_outbox, public.sf_inbox,
+                    public."__EFMigrationsHistory" TO sinalfrio_runtime;
                 GRANT INSERT ON public.sf_readings, public.sf_reviews,
                     public.sf_outbox, public.sf_inbox TO sinalfrio_runtime;
                 GRANT UPDATE ("ReadingVersion", "EvaluatedVersion", "Assessment",
